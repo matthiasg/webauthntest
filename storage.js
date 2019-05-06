@@ -1,42 +1,48 @@
 
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
 
-mongoose.connect(process.env.MONGODB_URL || 'mongodb://localhost/fido');
+// mongoose.connect(process.env.MONGODB_URL || 'mongodb://localhost/fido');
 
-var storage = {};
+const map = new Map()
 
+function getCredentials(uid) {
+  if (map.has(uid)) {
+    return map.get(uid)
+  } else {
+    const m = new Map()
+    map.set(uid, m)
+    return m
+  }
+}
 
-storage.Credentials = mongoose.model('Credential', new mongoose.Schema({
-    uid: {type: String, index: true},
-    id: {type: String, index: true},
-    idHex: String,
-    metadata: {
-        rpId: String,
-        userName: String,
-        residentKey: String
+module.exports = storage = {
+  Credentials: {
+    create(cred) {
+      const ids = getCredentials(cred.uid)
+      ids.set(cred.id, cred)
     },
-    creationData: {
-        publicKey: String,
-        publicKeySummary: String,
-        publicKeyHex: String,
-        aaguid: String,
-        attestationStatementHex: String,
-        attestationStatementSummary: String,
-        attestationStatementChainJSON : String,
-        authenticatorDataSummary: String,
-        authenticatorDataHex: String,
-        extensionDataHex: String,
+    async findOne({ uid, id }) {
+      const ids = getCredentials(uid)
+      return ids.get(id)
     },
-    authenticationData: {
-        authenticatorDataSummary: String,
-        signCount: Number,
-        userHandleHex: String,
-        authenticatorDataHex: String,
-        clientDataJSONHex: String,
-        signatureHex: String
+    async findOneAndUpdate({ uid, id }, updated) {
+      const ids = getCredentials(uid)
+      ids.set(id, updated)
+    },
+    async remove({ uid, id }) {
+      const ids = getCredentials(uid)
+      ids.remove(id)
+    },
+    find({ uid }) {
+      const ids = getCredentials(uid)
+      
+      return {
+        async lean() {
+          return [...ids.values()]
+        }
+      }
     }
-}));
-
-
+  }
+}
 
 module.exports = storage;
